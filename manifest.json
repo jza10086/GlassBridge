@@ -1,0 +1,15 @@
+{
+  "id": "GP_glass_bridge",
+  "kind": "minigame",
+  "package_version": "0.0.1",
+  "framework_version": "0.1.0",
+  "remark": "鱿鱼游戏玻璃桥，踩过桥面得分，坠落返回起点。",
+  "supported_languages": [
+    "zh-CN"
+  ],
+  "dependencies": {
+    "GP_voxel_character_system": "~0.1.0",
+    "GP_platformer_3d_components": "~0.0.1",
+    "GP_default_protocol": "~0.1.0"
+  }
+}
