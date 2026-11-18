@@ -13,6 +13,9 @@ var tokens := 0
 var checkpoint_count := 0
 var rank := 0
 var finish_time := 0.0
+signal pane_broken(pane: StaticBody3D)
+var withdrawn: bool = false
+var network_motion: bool = false
 var active := false
 var previous_position: Vector3
 var _previous_surfaces: Array[Node] = []
@@ -37,6 +40,8 @@ func integrate_horizontal(current: Vector2, target: Vector2, grounded: bool, del
 
 func _physics_process(delta: float) -> void:
 	previous_position = global_position
+	if network_motion:
+		view_yaw = 0.0
 	super(delta)
 	if not active:
 		return
@@ -62,7 +67,10 @@ func _physics_process(delta: float) -> void:
 				if body is IcePlatform:
 					_ground_grip = minf(_ground_grip, body.friction)
 				elif body is OneShotPlatform and normal.dot(body.global_basis.y.normalized()) > 0.7:
+					var intact: bool = body.visible
 					body.stepped_on()
+					if intact and not body.visible:
+						pane_broken.emit(body)
 					if body.collision.disabled:
 						lose_ground_support()
 				elif body is SeesawPlatform and normal.dot(body.global_basis.y.normalized()) > 0.7:

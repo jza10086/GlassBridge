@@ -3,11 +3,11 @@ extends Node3D
 
 enum Phase { COUNTDOWN, RUNNING, COMPLETE }
 @export var course_title := "障碍竞速"
-@export_range(1, 4) var player_count := 2
+@export_range(1, 8) var player_count := 2
 @export_range(0.0, 10.0) var countdown := 3.0
 @export_range(0.0, 1200.0) var time_limit := 0.0
 ## Zero means every entrant can finish.
-@export_range(0, 4) var qualification_slots := 0
+@export_range(0, 8) var qualification_slots := 0
 @export var racer_scene: PackedScene = preload("res://games/minigame/GP_glass_bridge/race/race_player.tscn")
 ## Progress gates can remain mandatory while every death returns to the starting grid.
 @export var checkpoint_respawn_enabled := true
@@ -47,45 +47,35 @@ func _enter_tree() -> void:
 func _exit_tree() -> void:
 	preview_input.restore()
 
-signal map_finished(elapsed_seconds: float)
-var party_input: PartyInput
-
-signal completed(metrics: Dictionary)
-var formal_started: bool = false
-var jump_was_down: bool = false
-
-func solo_setup(input: PartyInput, _text: RefCounted) -> void:
-	party_input = input
-	process_mode = Node.PROCESS_MODE_DISABLED
-	hide()
-
-func solo_start() -> void:
-	formal_started = true
-	show()
-	$HUD.show()
-	process_mode = Node.PROCESS_MODE_INHERIT
-	_start_course()
-	racers[0].input_enabled = false
-	view.set_process_unhandled_input(false)
-
-func solo_stop() -> void:
-	formal_started = false
-	process_mode = Node.PROCESS_MODE_DISABLED
-	$HUD.hide()
-	hide()
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-
-func solo_graphics_targets() -> Dictionary:
-	return {"world": $Environment, "sun": $Sun}
-
-func solo_audio_target() -> PartyGameAudio:
-	return null
+signal completed()
+signal race_started()
+var api: PartyAPI
+var roster: Array[Dictionary] = []
+var local_index: int = -1
+var playing: bool = false
 
 func _ready() -> void:
-	if party_input != null:
-		$HUD.hide()
-		return
-	_start_course()
+	if api == null:
+		playing = true
+		_start_course()
+		_focus(0)
+	else:
+		player_count = roster.size()
+		_start_course()
+		set_physics_process(false)
+
+func start_round() -> void:
+	playing = true
+	_focus(maxi(0, local_index))
+	view.set_process_unhandled_input(false)
+	racers[focused].input_enabled = false
+	if api.is_host():
+		set_physics_process(true)
+
+func stop_round() -> void:
+	playing = false
+	process_mode = Node.PROCESS_MODE_DISABLED
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func _start_course() -> void:
 	process_physics_priority = 120
@@ -100,13 +90,19 @@ func _start_course() -> void:
 		var racer: GlassBridgeRacer = racer_scene.instantiate()
 		racer.name = "P%d" % (i + 1)
 		racer.transform = global_transform.affine_inverse() * marker.global_transform
-		racer.input_enabled = i == 0
+		racer.input_enabled = api == null and i == 0
 		add_child(racer)
 		_apply_player_movement(racer)
 		racer.set_paused(true)
-		racer.get_node("Nameplate").text = racer.name
+		racer.get_node("Nameplate").text = racer.name if api == null else roster[i].name
+		if api != null:
+			if roster[i].is_local:
+				local_index = i
+			if not api.is_host():
+				racer.collision_layer = 0
+				racer.collision_mask = 0
+				racer.set_physics_process(false)
 		racers.append(racer)
-	_focus(0)
 
 func _apply_player_movement(racer: GlassBridgeRacer) -> void:
 	# The player owns an instance copy of the character preset after entering the tree.
@@ -146,8 +142,8 @@ func _focus(index: int) -> void:
 	add_child(view)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if party_input != null:
-		if formal_started and not party_input.input_blocked and event is InputEventMouseMotion:
+	if api != null:
+		if playing and local_index >= 0 and not api.input.input_blocked and event is InputEventMouseMotion:
 			view._unhandled_input(event)
 		return
 	if racers.size() > 1 and event.is_action_pressed(&"parkour_switch_racer"):
@@ -178,6 +174,8 @@ func interact(racer: GlassBridgeRacer) -> void:
 func ranked_racers() -> Array[GlassBridgeRacer]:
 	var standings: Array[GlassBridgeRacer] = racers.duplicate()
 	standings.sort_custom(func(a: GlassBridgeRacer, b: GlassBridgeRacer) -> bool:
+		if a.withdrawn != b.withdrawn:
+			return not a.withdrawn
 		if a.rank > 0 and b.rank > 0:
 			return a.rank < b.rank
 		if a.rank > 0 or b.rank > 0:
@@ -187,18 +185,28 @@ func ranked_racers() -> Array[GlassBridgeRacer]:
 		return a.get_index() < b.get_index())
 	return standings
 
+## Finishers have unique places. Unfinished racers with equal scores share a place.
+func standing_places(standings: Array[GlassBridgeRacer]) -> Array[int]:
+	var places: Array[int] = []
+	for i: int in standings.size():
+		var racer: GlassBridgeRacer = standings[i]
+		var place: int = i + 1
+		if racer.withdrawn:
+			place = 0
+		elif i > 0 and racer.rank == 0 and standings[i - 1].rank == 0 and racer.tokens == standings[i - 1].tokens:
+			place = places[i - 1]
+		places.append(place)
+	return places
+
 func _physics_process(delta: float) -> void:
-	if formal_started:
-		var movement: Vector2 = party_input.get_vector(&"glass_bridge_left", &"glass_bridge_right", &"glass_bridge_forward", &"glass_bridge_back")
-		var jump_down: bool = party_input.is_pressed(&"glass_bridge_jump")
-		var gait: StringName = &"Sprint" if party_input.is_pressed(&"glass_bridge_sprint") else &"Run"
-		racers[0].set_motion_input(movement, gait, phase == Phase.RUNNING and jump_down and not jump_was_down)
-		jump_was_down = jump_down
 	if phase == Phase.COUNTDOWN:
 		remaining -= delta
 		if remaining <= 0.0:
 			phase = Phase.RUNNING
+			race_started.emit()
 			for racer in racers:
+				if racer.withdrawn:
+					continue
 				racer.active = true
 				racer.set_paused(false)
 		return
@@ -232,18 +240,14 @@ func _physics_process(delta: float) -> void:
 		racer.active = false
 		racer.set_paused(true)
 	elapsed += delta
-	if results.size() == slots or (time_limit > 0.0 and elapsed >= time_limit):
+	if not racers.any(func(racer: GlassBridgeRacer) -> bool: return racer.active) or results.size() == slots or (time_limit > 0.0 and elapsed >= time_limit):
 		phase = Phase.COMPLETE
 		for racer in racers:
 			racer.active = false
 			racer.set_paused(true)
-		if formal_started:
-			var player: GlassBridgeRacer = racers[0]
-			completed.emit({"time": roundi(elapsed * 1000.0), "score": player.tokens,
-				"gates": player.checkpoint_count, "finished": int(player.rank > 0)})
-		map_finished.emit(elapsed)
+		completed.emit()
 		return
-	if racers.size() > 1:
+	if api == null and racers.size() > 1:
 		var partner := racers[(focused + 1) % racers.size()]
 		if partner.active:
 			partner.view_yaw = view.actor.view_yaw

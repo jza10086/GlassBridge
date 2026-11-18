@@ -976,6 +976,18 @@ jump_height = 2.0
 
 [node name="StartGrid" parent="." instance=ExtResource("2_avyvi")]
 
+[node name="Slot5" type="Marker3D" parent="StartGrid"]
+position = Vector3(-1.3, 0.05, 2.4)
+
+[node name="Slot6" type="Marker3D" parent="StartGrid"]
+position = Vector3(1.3, 0.05, 2.4)
+
+[node name="Slot7" type="Marker3D" parent="StartGrid"]
+position = Vector3(-2.1, 0.05, 3.6)
+
+[node name="Slot8" type="Marker3D" parent="StartGrid"]
+position = Vector3(2.1, 0.05, 3.6)
+
 [node name="Checkpoints" type="Node3D" parent="." unique_id=332355912]
 
 [node name="SectorExit01" parent="Checkpoints" instance=ExtResource("3_inbud")]

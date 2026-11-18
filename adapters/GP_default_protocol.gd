@@ -4,8 +4,6 @@ extends RefCounted
 static func party_definition() -> Dictionary:
 	return {"dependencies": {}}
 
-## The test maps report one local participant through the standard solo round.
-
 func check_request(request: Dictionary) -> Dictionary:
 	if request.get("mode") != "standard":
 		return {"ok": false, "code": "unsupported_mode", "message": "本游戏仅支持 standard 普通局"}
