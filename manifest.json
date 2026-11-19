@@ -1,8 +1,8 @@
 {
   "id": "GP_glass_bridge",
   "kind": "minigame",
-  "package_version": "0.1.2",
-  "framework_version": "0.3.0",
+  "package_version": "0.1.3",
+  "framework_version": "0.4.0",
   "remark": "鱿鱼游戏玻璃桥，踩过桥面得分，坠落返回起点。",
   "supported_languages": [
     "zh-CN"
