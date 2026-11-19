@@ -972,7 +972,6 @@ course_title = "鱿鱼游戏 · 玻璃桥 · 长赛道"
 countdown = 5.0
 time_limit = 450.0
 checkpoint_respawn_enabled = false
-jump_height = 2.0
 
 [node name="StartGrid" parent="." instance=ExtResource("2_avyvi")]
 

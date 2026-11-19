@@ -1,6 +1,8 @@
 class_name GlassBridgeCourse
 extends Node3D
 
+const Settings = preload("../settings.gd")
+
 enum Phase { COUNTDOWN, RUNNING, COMPLETE }
 @export var course_title := "障碍竞速"
 @export_range(1, 8) var player_count := 2
@@ -14,10 +16,10 @@ enum Phase { COUNTDOWN, RUNNING, COMPLETE }
 
 @export_group("Player Movement")
 @export_range(0.1, 30.0, 0.1, "or_greater", "suffix:m/s") var walk_speed := 1.3
-@export_range(0.1, 30.0, 0.1, "or_greater", "suffix:m/s") var run_speed := 4.3
-@export_range(0.1, 30.0, 0.1, "or_greater", "suffix:m/s") var sprint_speed := 5.6
+@export_range(0.1, 30.0, 0.1, "or_greater", "suffix:m/s") var run_speed: float = Settings.DEFAULT_RUN_SPEED
+@export_range(0.1, 30.0, 0.1, "or_greater", "suffix:m/s") var sprint_speed: float = Settings.DEFAULT_SPRINT_SPEED
 ## 从静止地面起跳时，脚底到最高点的垂直距离。平台速度和弹射可改变实际高度。
-@export_range(0.05, 15.0, 0.001, "or_greater", "suffix:m") var jump_height := 1.265625
+@export_range(0.05, 15.0, 0.001, "or_greater", "suffix:m") var jump_height: float = Settings.DEFAULT_JUMP_HEIGHT
 ## 松开方向键后在地面减速的快慢。值越小，滑行越远。
 @export_range(0.0, 120.0, 0.1, "or_greater", "suffix:m/s²") var ground_braking := 60.0
 ## 空中没有有效方向输入时的水平减速度。设为 0 可完整保留水平速度。
@@ -67,7 +69,6 @@ func _ready() -> void:
 func start_round() -> void:
 	playing = true
 	_focus(maxi(0, local_index))
-	view.set_process_unhandled_input(false)
 	racers[focused].input_enabled = false
 	if api.is_host():
 		set_physics_process(true)
@@ -140,19 +141,20 @@ func _focus(index: int) -> void:
 	view.actor = target
 	view.yaw = target.global_rotation.y
 	add_child(view)
+	view.set_process_unhandled_input(false)
 
 ## Receive local camera motion before GUI controls consume the event.
 func _input(event: InputEvent) -> void:
-	if api == null or not playing or local_index < 0 or api.input.input_blocked:
+	if not playing or view == null:
 		return
-	if api.input.event_matches(event, &"glass_bridge_switch_person"):
-		view.set_view(StandardViewRig.View.THIRD_PERSON if view.mode == StandardViewRig.View.FIRST_PERSON else StandardViewRig.View.FIRST_PERSON)
-	elif api.input.event_matches(event, &"glass_bridge_switch_top_down"):
-		view.set_view(StandardViewRig.View.THIRD_PERSON if view.mode == StandardViewRig.View.TOP_DOWN else StandardViewRig.View.TOP_DOWN)
-	elif event is InputEventMouseMotion and view.controls_active() and view.mode != StandardViewRig.View.TOP_DOWN:
+	if api != null and (local_index < 0 or api.input.input_blocked):
+		return
+	if api == null and view.inputs.pressed(event, &"release_controls"):
+		view.suspend_controls()
+	elif event is InputEventMouseMotion and view.controls_active():
 		view._unhandled_input(event)
 	elif event is InputEventMouseButton and event.pressed:
-		if event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN] and view.mode != StandardViewRig.View.FIRST_PERSON:
+		if event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
 			view._unhandled_input(event)
 		elif event.button_index == MOUSE_BUTTON_LEFT and not view.controls_active():
 			view.resume_controls()

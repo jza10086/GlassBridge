@@ -29,6 +29,10 @@ func party_setup(context: PartyAPI, config: Dictionary) -> void:
 	players = api.get_players()
 	$Course.api = api
 	$Course.roster = players
+	var rules: Dictionary = api.get_settings()
+	$Course.run_speed = rules.run_speed
+	$Course.sprint_speed = rules.sprint_speed
+	$Course.jump_height = rules.jump_height
 
 func _ready() -> void:
 	if api == null:
@@ -123,8 +127,7 @@ func _physics_process(delta: float) -> void:
 
 func _send_controls() -> void:
 	var movement: Vector2 = api.input.get_vector(&"glass_bridge_left", &"glass_bridge_right", &"glass_bridge_forward", &"glass_bridge_back")
-	var camera_yaw: float = deg_to_rad(course.view.top_down.yaw_degrees) if course.view.mode == StandardViewRig.View.TOP_DOWN else course.view.yaw
-	var data: Dictionary = {"move": movement.rotated(-camera_yaw), "sprint": api.input.is_pressed(&"glass_bridge_sprint"), "jump": jump_pending}
+	var data: Dictionary = {"move": movement.rotated(-course.view.yaw), "sprint": api.input.is_pressed(&"glass_bridge_sprint"), "jump": jump_pending}
 	jump_pending = false
 	if data == last_controls and not data.jump:
 		return
