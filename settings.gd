@@ -1,6 +1,6 @@
 extends RefCounted
 const Definition = preload("definition.gd")
-const KEYS: Dictionary[String, Key] = {"glass_bridge_left": KEY_A, "glass_bridge_right": KEY_D, "glass_bridge_forward": KEY_W, "glass_bridge_back": KEY_S, "glass_bridge_jump": KEY_SPACE, "glass_bridge_sprint": KEY_SHIFT}
+const KEYS: Dictionary[String, Key] = {"glass_bridge_left": KEY_A, "glass_bridge_right": KEY_D, "glass_bridge_forward": KEY_W, "glass_bridge_back": KEY_S, "glass_bridge_jump": KEY_SPACE, "glass_bridge_sprint": KEY_SHIFT, "glass_bridge_switch_person": KEY_C, "glass_bridge_switch_top_down": KEY_T}
 
 static func schema() -> Dictionary:
 	var titles: Dictionary = Definition.party_definition().controls

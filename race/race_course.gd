@@ -141,10 +141,29 @@ func _focus(index: int) -> void:
 	view.yaw = target.global_rotation.y
 	add_child(view)
 
+## Receive local camera motion before GUI controls consume the event.
+func _input(event: InputEvent) -> void:
+	if api == null or not playing or local_index < 0 or api.input.input_blocked:
+		return
+	if api.input.event_matches(event, &"glass_bridge_switch_person"):
+		view.set_view(StandardViewRig.View.THIRD_PERSON if view.mode == StandardViewRig.View.FIRST_PERSON else StandardViewRig.View.FIRST_PERSON)
+	elif api.input.event_matches(event, &"glass_bridge_switch_top_down"):
+		view.set_view(StandardViewRig.View.THIRD_PERSON if view.mode == StandardViewRig.View.TOP_DOWN else StandardViewRig.View.TOP_DOWN)
+	elif event is InputEventMouseMotion and view.controls_active() and view.mode != StandardViewRig.View.TOP_DOWN:
+		view._unhandled_input(event)
+	elif event is InputEventMouseButton and event.pressed:
+		if event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN] and view.mode != StandardViewRig.View.FIRST_PERSON:
+			view._unhandled_input(event)
+		elif event.button_index == MOUSE_BUTTON_LEFT and not view.controls_active():
+			view.resume_controls()
+		else:
+			return
+	else:
+		return
+	get_viewport().set_input_as_handled()
+
 func _unhandled_input(event: InputEvent) -> void:
 	if api != null:
-		if playing and local_index >= 0 and not api.input.input_blocked and event is InputEventMouseMotion:
-			view._unhandled_input(event)
 		return
 	if racers.size() > 1 and event.is_action_pressed(&"parkour_switch_racer"):
 		_focus((focused + 1) % racers.size())

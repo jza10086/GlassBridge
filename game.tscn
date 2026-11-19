@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" path="maps/squid_game.tscn" id="2"]
 
 [node name="GlassBridge" type="Control"]
+mouse_filter = 2
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
